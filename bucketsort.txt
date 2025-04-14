@@ -1,0 +1,85 @@
+// Reset bucketSize array to zeros
+00000100000000010000000000001010   // addi $1, $0, 0      - Initialize counter
+00000100000001000000000000001010   // addi $4, $0, 10     - Load max bucket count
+00011000000001010000000000000000   // lui $5, 0x0000      - Upper part of bucketSize address
+00000100000001010000000001000000   // addi $5, $0, 64     - Lower part of bucketSize address
+00101100001001001111111111111010   // beq $1, $4, 10      - If counter == 10, branch to distribution
+00000100000001100000000000000100   // addi $6, $0, 4      - Word size
+00000000001001100011100000000000   // mul $7, $1, $6      - Offset = counter * 4
+00000000101001110010100000000000   // add $5, $5, $7      - bucketSize[i] address
+00000100000001000000000000000000   // addi $4, $0, 0      - Zero value
+00101000000001000000000000000000   // sw $4, 0($5)        - Store zero to bucketSize[i]
+00000100001000010000000000000001   // addi $1, $1, 1      - Increment counter
+00100100000000001111111111110110   // j to initBuckets loop start
+
+// Distribute elements to buckets
+00000100000000010000000000000000   // addi $1, $0, 0      - Initialize array counter
+00000100000000100000000000001010   // addi $2, $0, 10     - Array size
+00000100000001000000000000100000   // addi $4, $0, 32     - Load array address
+00011000000001010000000000000000   // lui $5, 0x0000      - Upper part of buckets address
+00000100000001010000000001100100   // addi $5, $0, 100    - Lower part of buckets address
+00011000000001100000000000000000   // lui $6, 0x0000      - Upper part of bucketSize address
+00000100000001100000000001000000   // addi $6, $0, 64     - Lower part of bucketSize address
+
+// Distribution loop
+00101100001000101111111111111010   // beq $1, $2, 10      - If counter == size, branch to sort
+00000100000001110000000000000100   // addi $7, $0, 4      - Word size
+00000000001001110100000000000000   // mul $8, $1, $7      - Offset = counter * 4
+00000000100010001001000000000000   // add $18, $4, $8     - array[i] address
+00100100000100010000000000000000   // lw $17, 0($18)      - Load array[i]
+00000000000100010100100000000000   // div $9, $17, 10     - Bucket index = array[i] / 10
+00000000000101000101000000000000   // mul $10, $9, $4     - Offset = bucket index * 4
+00000000110010100101100000000000   // add $11, $6, $10    - bucketSize[bucket] address
+00100100000010110000000000000000   // lw $11, 0($11)      - Load current bucket size
+00000000000010110110000000000000   // mul $12, $9, $7     - 4 * bucket index
+00000000000011000110100000000000   // mul $13, $12, 10    - 40 * bucket index (max 10 elements per bucket)
+00000000000010110111000000000000   // mul $14, $11, $7    - 4 * current size
+00000001101011100111000000000000   // add $14, $13, $14   - Total offset in bucket array
+00000000101011100111100000000000   // add $15, $5, $14    - Address in bucket array
+00101010010000000000000000000000   // sw $17, 0($15)      - Store array[i] in bucket
+00000101100101100000000000000001   // addi $11, $11, 1    - Increment bucket size
+00000000110010100110100000000000   // add $13, $6, $10    - bucketSize[bucket] address
+00101000000010110000000000000000   // sw $11, 0($13)      - Update bucket size
+00000100001000010000000000000001   // addi $1, $1, 1      - Increment array counter
+00100100000000001111111111110000   // j to distribution loop start
+
+// Sorting buckets (omitting the insertion sort for brevity)
+
+// Merging buckets back to original array
+00000100000000010000000000000000   // addi $1, $0, 0      - Initialize bucket counter
+00000100000000100000000000000000   // addi $2, $0, 0      - Position in result array
+00011000000001010000000000000000   // lui $5, 0x0000      - Upper part of buckets address
+00000100000001010000000001100100   // addi $5, $0, 100    - Lower part of buckets address
+00011000000001100000000000000000   // lui $6, 0x0000      - Upper part of bucketSize address
+00000100000001100000000001000000   // addi $6, $0, 64     - Lower part of bucketSize address
+00000100000001000000000000100000   // addi $4, $0, 32     - Load result array address
+
+// Merge loop for buckets
+00101100001001001111111111111010   // beq $1, $4, 10      - If all buckets merged, exit
+00000100000001110000000000000100   // addi $7, $0, 4      - Word size
+00000000001001110100000000000000   // mul $8, $1, $7      - Offset = bucket index * 4
+00000000110010000101000000000000   // add $10, $6, $8     - bucketSize[bucket] address
+00100100000010100000000000000000   // lw $10, 0($10)      - Load bucket size
+00000000000000010101100000000000   // mul $11, $1, 10     - 10 * bucket index
+00000000000010110110000000000000   // mul $12, $11, $7    - 4 * 10 * bucket index = 40 * bucket index
+00000000101011000110100000000000   // add $13, $5, $12    - Address of bucket[bucketIndex][0]
+
+// Copy loop for elements within a bucket
+00000100000001000000000000000000   // addi $4, $0, 0      - Initialize element counter
+00101100100010101111111111111001   // beq $4, $10, 9      - If all elements copied, next bucket
+00000100000001110000000000000100   // addi $7, $0, 4      - Word size
+00000000100001110111000000000000   // mul $14, $4, $7     - Offset in bucket = element index * 4
+00000001101011100111100000000000   // add $15, $13, $14   - Address of bucket[bucketIndex][element]
+00100100000011110000000000000000   // lw $15, 0($15)      - Load element from bucket
+00000000000000100111000000000000   // mul $14, $2, $7     - Offset in result = position * 4
+00000000100011100111100000000000   // add $15, $4, $14    - Address in result array
+00101000000011110000000000000000   // sw $15, 0($15)      - Store in result array
+00000100010000100000000000000001   // addi $2, $2, 1      - Increment position in result
+00000100100001000000000000000001   // addi $4, $4, 1      - Increment element counter
+00100100000000001111111111110110   // j to element copy loop start
+
+00000100001000010000000000000001   // addi $1, $1, 1      - Increment bucket counter
+00100100000000001111111111101111   // j to bucket merge loop start
+
+// Exit function
+00100100000001000000000000000000   // jr $ra              - Return from function
